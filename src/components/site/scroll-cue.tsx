@@ -27,7 +27,7 @@ export function ScrollCue({
       <span className="font-mono text-[11px] uppercase tracking-[0.25em]">
         {label}
       </span>
-      <span className="grid size-10 place-items-center rounded-full border border-white/25 transition-colors duration-200 group-hover:border-white">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/25 transition-colors duration-200 group-hover:border-white">
         <ArrowDown className="size-4 transition-transform duration-300 group-hover:translate-y-0.5" />
       </span>
     </a>

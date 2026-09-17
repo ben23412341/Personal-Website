@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
+import { BackLink } from "@/components/site/back-link";
 import { SiteHeader } from "@/components/site/site-header";
 import { experiences, getExperience } from "@/lib/experience";
 import { siteConfig } from "@/lib/site-config";
@@ -47,13 +48,7 @@ export default async function ExperiencePage({
 
       <article className="flex-1">
         <div className="px-5 pb-12 pt-8 sm:px-8 sm:pb-16 sm:pt-12">
-          <Link
-            href="/#experience"
-            className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-white/50 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="size-3.5 transition-transform duration-300 group-hover:-translate-x-0.5" />
-            Back to experience
-          </Link>
+          <BackLink hash="#experience">Back to experience</BackLink>
 
           <p className="mt-10 font-mono text-[11px] uppercase tracking-[0.2em] text-white/50">
             ( {String(index + 1).padStart(2, "0")} ) · {item.period} ·{" "}

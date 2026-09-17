@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
+import { BackLink } from "@/components/site/back-link";
 import { SiteHeader } from "@/components/site/site-header";
 import { cn } from "@/lib/utils";
 import { getProject, projects, statusLabel } from "@/lib/projects";
@@ -53,16 +54,12 @@ export default async function ProjectPage({
       <article className="flex-1">
         {/* Title block */}
         <div className="px-5 pb-12 pt-8 sm:px-8 sm:pb-16 sm:pt-12">
-          <Link
-            href="/#work"
-            className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-white/50 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="size-3.5 transition-transform duration-300 group-hover:-translate-x-0.5" />
-            Back to work
-          </Link>
+          <BackLink hash="#work">Back to work</BackLink>
 
           <div className="mt-10 flex items-center gap-4">
-            <span className="grid size-11 place-items-center rounded-full border border-white/40 text-white">
+            {/* shrink-0, or the long meta line beside it squashes the circle
+                into an ellipse on a narrow screen. */}
+            <span className="grid size-11 shrink-0 place-items-center rounded-full border border-white/40 text-white">
               <Icon className="size-4" />
             </span>
             <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/50">

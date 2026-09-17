@@ -147,6 +147,14 @@ body {
   background-color: #000;
 }
 
+/* Nothing here is meant to be read sideways, and a decorative element hanging
+   a little past the edge on a narrow screen should not give the page a second
+   axis to scroll. `clip` rather than `hidden`: it trims the overflow without
+   becoming a scroll container, so the pinned sections keep sticking. */
+html {
+  overflow-x: clip;
+}
+
 ::selection {
   background-color: #fff;
   color: #000;

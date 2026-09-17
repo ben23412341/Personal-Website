@@ -46,8 +46,10 @@ export function AboutSection() {
       <div aria-hidden="true" className="h-px w-full bg-white/80" />
 
       <div ref={ref}>
-        {/* The runway's height is the scroll distance the parallax scrubs over */}
-        <div data-parallax-layers className="relative h-[180svh]">
+        {/* The runway's height is the scroll distance the parallax scrubs
+            over. Narrow screens get a quarter less of it, so the section hands
+            over to Work without a long stretch where nothing moves. */}
+        <div data-parallax-layers className="relative h-[135svh] sm:h-[180svh]">
           <div className="sticky top-0 h-[100svh] overflow-hidden">
             {/* 1 — oversized ghost word, drifts the most */}
             <div
@@ -55,7 +57,7 @@ export function AboutSection() {
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 -top-[18%] grid h-full place-items-center"
             >
-              <span className="whitespace-nowrap font-display text-[19vw] leading-none tracking-tight text-white/[0.05]">
+              <span className="whitespace-nowrap font-display text-[30vw] leading-none tracking-tight text-white/[0.05] sm:text-[19vw]">
                 About
               </span>
             </div>
@@ -80,10 +82,12 @@ export function AboutSection() {
               </p>
             </div>
 
-            {/* 4 — the copy, holds nearly still so it stays readable */}
+            {/* 4 — the copy, holds nearly still so it stays readable. Narrow
+                screens centre it against a frame short of the bottom, which
+                lifts the block and trims the gap under its last line. */}
             <div
               data-parallax-layer="4"
-              className="absolute inset-0 grid content-center px-5 sm:px-8"
+              className="absolute inset-x-0 bottom-24 top-0 grid content-center px-5 sm:bottom-0 sm:px-8"
             >
               <div className="w-full max-w-6xl">
                 <h2 className="max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[0.92] tracking-tight text-white">

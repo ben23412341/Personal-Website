@@ -24,6 +24,44 @@ const prefersReducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
+ * Where the viewer last was on each route. Next keeps the scroll position
+ * whenever it judges the incoming page to already be in view, which is why
+ * opening a project from halfway down the home page sometimes landed halfway
+ * down the project. The provider takes that decision over, and this is what
+ * it decides from.
+ */
+const scrollMemory = new Map<string, number>();
+
+/** How far down `path` the viewer was, if they have been there this session. */
+export function rememberedScroll(path: string) {
+  return scrollMemory.get(path);
+}
+
+/**
+ * Set by a link that knows where the route it opens should land — a back link
+ * returning someone to the spot they left. Consumed by the next route change,
+ * whether or not that route asked for it.
+ */
+let requestedScroll: number | null = null;
+
+export function requestScrollRestore(y: number) {
+  requestedScroll = y;
+}
+
+/** Run `fn` once the route has painted and the browser has had its say. */
+function afterPaint(fn: () => void) {
+  let second = 0;
+  const first = window.requestAnimationFrame(() => {
+    second = window.requestAnimationFrame(fn);
+  });
+
+  return () => {
+    window.cancelAnimationFrame(first);
+    window.cancelAnimationFrame(second);
+  };
+}
+
+/**
  * Drives Lenis smooth scrolling off the GSAP ticker and keeps ScrollTrigger
  * in sync, so every scroll-scrubbed animation on the page shares one clock.
  */
@@ -35,31 +73,111 @@ export function SmoothScrollProvider({
   const lenisRef = React.useRef<Lenis | null>(null);
   const pathname = usePathname();
 
+  /** False until the first client-side navigation, true for every one after. */
+  const navigatedRef = React.useRef(false);
+  /** The route the last settled navigation left us on. */
+  const pathRef = React.useRef(pathname);
+  /** Set by a popstate that changes route, read by the change it starts. */
+  const poppedRef = React.useRef(false);
+
   /**
-   * A client-side navigation jumps the window (to the top, or to a hash) with
-   * no Lenis involvement, so Lenis's internal position — which is what drives
-   * ScrollTrigger.update — goes stale, and every scroll-scrubbed animation on
-   * the new page stays frozen at progress 0. Resync both after the route has
-   * painted and the browser has done its hash scroll.
+   * Put the window, Lenis and ScrollTrigger at the same place. Lenis holds
+   * its own idea of the scroll position and writes it to the window every
+   * frame, so moving one without the other leaves whichever wrote last in
+   * charge — a race, and the reason a project page opened at the top only
+   * most of the time.
+   */
+  const settleAt = React.useCallback((y: number) => {
+    const lenis = lenisRef.current;
+
+    window.scrollTo(0, y);
+    if (lenis) {
+      lenis.resize();
+      lenis.scrollTo(y, { immediate: true, force: true });
+    }
+    ScrollTrigger.refresh();
+  }, []);
+
+  // Bank the scroll position against the route it belongs to. Reading the
+  // path off `location` rather than the render keeps the two in step: by the
+  // time a scroll fires for a new route, the URL has already changed.
+  React.useEffect(() => {
+    let frame = 0;
+    let cancelSync: (() => void) | undefined;
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        scrollMemory.set(window.location.pathname, window.scrollY);
+      });
+    };
+
+    const onPop = () => {
+      if (window.location.pathname !== pathRef.current) {
+        // Crossing routes — the route effect below does the work.
+        poppedRef.current = true;
+        return;
+      }
+
+      // Same route, so no re-render is coming: this is the browser stepping
+      // back through the hash entries the nav links push. It moves the window
+      // on its own, and Lenis would go on believing it had not.
+      cancelSync?.();
+      cancelSync = afterPaint(() => settleAt(window.scrollY));
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("popstate", onPop);
+      if (frame) window.cancelAnimationFrame(frame);
+      cancelSync?.();
+    };
+  }, [settleAt]);
+
+  /**
+   * Every route change lands somewhere deliberate: back where the viewer was
+   * if they are going back, at the top of the page if they are going forward.
    */
   React.useEffect(() => {
-    let second = 0;
-    const first = window.requestAnimationFrame(() => {
-      second = window.requestAnimationFrame(() => {
-        const lenis = lenisRef.current;
-        if (lenis) {
-          lenis.resize();
-          lenis.scrollTo(window.scrollY, { immediate: true, force: true });
-        }
-        ScrollTrigger.refresh();
-      });
-    });
+    const first = !navigatedRef.current;
+    navigatedRef.current = true;
+    pathRef.current = pathname;
 
-    return () => {
-      window.cancelAnimationFrame(first);
-      window.cancelAnimationFrame(second);
+    const popped = poppedRef.current;
+    poppedRef.current = false;
+
+    const requested = requestedScroll;
+    requestedScroll = null;
+
+    const { hash } = window.location;
+
+    /** Read after the route has painted, so a hash target is measurable. */
+    const resolveTarget = () => {
+      // A first paint is a load or a reload: the browser has already put the
+      // window where it belongs, and Lenis only has to agree with it.
+      if (first) return window.scrollY;
+      if (requested !== null) return requested;
+      if (popped) return scrollMemory.get(pathname) ?? 0;
+
+      if (hash) {
+        const target = document.querySelector(hash);
+        if (target) {
+          return window.scrollY + target.getBoundingClientRect().top;
+        }
+      }
+
+      return 0;
     };
-  }, [pathname]);
+
+    return afterPaint(() => {
+      const y = resolveTarget();
+      settleAt(y);
+      scrollMemory.set(pathname, y);
+    });
+  }, [pathname, settleAt]);
 
   React.useEffect(() => {
     if (prefersReducedMotion()) return;

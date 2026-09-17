@@ -6,6 +6,7 @@ import { AgeCounter } from "@/components/site/age-counter";
 import { ScrollCue } from "@/components/site/scroll-cue";
 import { SiteHeader } from "@/components/site/site-header";
 import { Waves } from "@/components/ui/wave-background";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   useParallaxLayers,
   type ParallaxLayer,
@@ -23,6 +24,18 @@ const LAYERS: readonly ParallaxLayer[] = [
   { layer: "1", y: 140 }, // wave field — furthest
   { layer: "2", y: 95 }, // header
   { layer: "3", y: 45 }, // name plate — nearest
+];
+
+/**
+ * The same three bands, at a fraction of the travel. A narrow name plate is
+ * only a little taller than the type inside it, and its parent clips, so the
+ * wide drift pushes the scroll cue and the location line under the closing
+ * rule before the section has finished leaving.
+ */
+const NARROW_LAYERS: readonly ParallaxLayer[] = [
+  { layer: "1", y: 70 },
+  { layer: "2", y: 55 },
+  { layer: "3", y: 12 },
 ];
 
 /** Hairline rule that frames the wave field, top and bottom. */
@@ -53,7 +66,11 @@ function LocationLine({ className }: { className?: string }) {
 }
 
 export function Hero() {
-  const ref = useParallaxLayers<HTMLDivElement>(LAYERS);
+  // Matches the `md:` breakpoint the name plate itself reflows at.
+  const narrow = useMediaQuery("(max-width: 767px)");
+  const ref = useParallaxLayers<HTMLDivElement>(
+    narrow ? NARROW_LAYERS : LAYERS,
+  );
 
   return (
     <div ref={ref}>

@@ -37,7 +37,7 @@ export function SocialCluster({ className }: { className?: string }) {
             target={isExternal(href) ? "_blank" : undefined}
             rel="noreferrer"
             aria-label={label}
-            className="grid size-6 place-items-center rounded-full border border-white/25 text-white/70 transition-colors duration-200 hover:border-white hover:text-white focus-visible:border-white focus-visible:text-white focus-visible:outline-none"
+            className="grid size-6 shrink-0 place-items-center rounded-full border border-white/25 text-white/70 transition-colors duration-200 hover:border-white hover:text-white focus-visible:border-white focus-visible:text-white focus-visible:outline-none"
           >
             <Icon className="size-3" />
           </a>
@@ -58,7 +58,7 @@ export function SocialRow({ className }: { className?: string }) {
             target={isExternal(href) ? "_blank" : undefined}
             rel="noreferrer"
             aria-label={label}
-            className="grid size-9 place-items-center rounded-full border border-white/25 text-white/70 transition-colors duration-200 hover:border-white hover:text-white"
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-white/25 text-white/70 transition-colors duration-200 hover:border-white hover:text-white"
           >
             <Icon className="size-4" />
           </a>

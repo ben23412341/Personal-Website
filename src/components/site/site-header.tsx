@@ -48,7 +48,7 @@ export function SiteHeader() {
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? "Close menu" : "Open menu"}
-          className="grid size-9 place-items-center rounded-full border border-white/25 text-white transition-colors duration-200 hover:border-white md:hidden"
+          className="grid size-9 shrink-0 place-items-center rounded-full border border-white/25 text-white transition-colors duration-200 hover:border-white md:hidden"
         >
           {open ? <X className="size-4" /> : <Menu className="size-4" />}
         </button>
