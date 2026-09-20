@@ -43,7 +43,7 @@ export const siteConfig = {
 
   socials: {
     github: "https://github.com/ben23412341",
-    linkedin: "https://www.linkedin.com/in/ben-devine-4a2a5b382/",
+    linkedin: "https://www.linkedin.com/in/ben-devine-toronto/",
     medium: "https://medium.com/@ben23412341",
     youtube: "https://www.youtube.com/@Ben.Devine",
     email: `mailto:${EMAIL}`,
