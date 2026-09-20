@@ -22,15 +22,23 @@ const LAYERS: readonly ParallaxLayer[] = [
 ];
 
 /**
- * The same four layers, at roughly half the travel. Depth is the difference
- * between two layers' drift, and on a phone the index and the copy have only
- * the height of the label between them: 60px of it spent that gap and drove
- * the index down through the heading. Half the travel keeps the layers apart
- * over a runway that is itself a quarter shorter.
+ * Narrow screens give the two background layers the same travel the desktop
+ * has, and the two foreground ones far less. Depth is the difference between
+ * two layers' drift, and on a phone the index and the copy have only the
+ * height of the label between them: 60px of it spent that gap and drove the
+ * index down through the heading. So those two stay short, and the ghost word
+ * and the hairline field carry the motion instead.
+ *
+ * These numbers read as larger than what the eye gets. The scrub runs over
+ * the whole runway, but the frame is only pinned for the part of it past the
+ * sticky child's own height — 361px of 1106px on a 393x745 iPhone — so about
+ * a third of the timeline plays while the section is being read, and the rest
+ * as it scrolls away. 180px here was 47px of visible drift, which is what
+ * "barely moves" looks like.
  */
 const NARROW_LAYERS: readonly ParallaxLayer[] = [
-  { layer: "1", y: 180 },
-  { layer: "2", y: 130 },
+  { layer: "1", y: 300 },
+  { layer: "2", y: 220 },
   { layer: "3", y: 80 },
   { layer: "4", y: 50 },
 ];
@@ -71,9 +79,12 @@ export function AboutSection() {
 
       <div ref={ref}>
         {/* The runway's height is the scroll distance the parallax scrubs
-            over. Narrow screens get a quarter less of it, so the section hands
-            over to Work without a long stretch where nothing moves. */}
-        <div data-parallax-layers className="relative h-[135svh] sm:h-[180svh]">
+            over. Narrow screens still get less of it than the desktop, so the
+            section hands over to Work without a long stretch where nothing
+            moves — but 10% more than they used to, which also widens the
+            pinned stretch the background layers drift across, since that is
+            the runway minus one frame. */}
+        <div data-parallax-layers className="relative h-[148.5svh] sm:h-[180svh]">
           <div className="sticky top-0 h-[100svh] overflow-hidden">
             {/* 1 — oversized ghost word, drifts the most */}
             <div
@@ -114,10 +125,13 @@ export function AboutSection() {
                 frame short enough that a block centred against all of it
                 started above the label. `content-center-safe` covers the rest
                 — once the copy is taller than the room it has, it grows down
-                past the fold rather than up through the index. */}
+                past the fold rather than up through the index. The bottom
+                inset is 128px: on a 393x745 iPhone that leaves the copy 505px
+                to sit in and it needs 470, so the block keeps its slack and
+                the last line keeps clear of the rule under the section. */}
             <div
               data-parallax-layer="4"
-              className="absolute inset-x-0 bottom-24 top-28 grid content-center-safe px-5 short:bottom-6 sm:bottom-0 sm:top-0 sm:px-8 sm:short:top-32"
+              className="absolute inset-x-0 bottom-32 top-28 grid content-center-safe px-5 short:bottom-6 sm:bottom-0 sm:top-0 sm:px-8 sm:short:top-32"
             >
               <div className="w-full max-w-6xl">
                 <h2 className="max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[1.06] tracking-tight text-white">
