@@ -105,7 +105,7 @@ function SectionHeading() {
       <p className="font-mono text-xs tracking-[0.25em] text-white/50 sm:text-sm">
         ( 03 )&nbsp;&nbsp;EXPERIENCE
       </p>
-      <h2 className="mt-6 max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[0.92] tracking-tight text-white">
+      <h2 className="mt-6 max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[1.06] tracking-tight text-white">
         Where I&apos;ve been.
       </h2>
     </>

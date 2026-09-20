@@ -244,7 +244,7 @@ export function WorkSection() {
               ( 02 )&nbsp;&nbsp;WORK
             </p>
 
-            <h2 className="mt-8 max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[0.92] tracking-tight text-white">
+            <h2 className="mt-8 max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[1.06] tracking-tight text-white">
               Selected work &amp; projects.
             </h2>
 
@@ -290,7 +290,11 @@ export function WorkSection() {
               {nodes.map(({ project, index, x, y, proximity }) => {
                 const isActive = project.slug === activeProject.slug;
                 const Icon = project.icon;
-                const scale = 0.82 + proximity * 0.38;
+                // Every node is the same size, wherever it is on the wheel and
+                // whatever the screen: the one in the open slot is marked by
+                // its fill, not by being bigger than the rest. Depth is left
+                // to the fade, which is also what keeps eight labels legible
+                // on a phone, where the ring is too small to hold them apart.
                 const opacity = 0.28 + Math.pow(proximity, 1.4) * 0.72;
 
                 const visual = (
@@ -307,7 +311,12 @@ export function WorkSection() {
                     </span>
                     <span
                       className={cn(
-                        "absolute left-1/2 top-[calc(100%+0.6rem)] w-28 -translate-x-1/2 text-balance text-center font-mono text-[11px] uppercase leading-tight tracking-[0.18em] transition-colors duration-300 lg:w-36",
+                        // The narrowest ring puts two labels about 105px
+                        // apart at the top and bottom of the wheel, so that is
+                        // all the width a label can take there without running
+                        // into its neighbour. It used to get away with more
+                        // because the far nodes were drawn smaller.
+                        "absolute left-1/2 top-[calc(100%+0.6rem)] w-24 -translate-x-1/2 text-balance text-center font-mono text-[11px] uppercase leading-tight tracking-[0.18em] transition-colors duration-300 sm:w-28 lg:w-36",
                         isActive ? "text-white" : "text-white/60",
                       )}
                     >
@@ -321,29 +330,35 @@ export function WorkSection() {
                     key={project.slug}
                     className="absolute left-1/2 top-1/2"
                     style={{
-                      transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${scale})`,
+                      transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
                       zIndex: Math.round(100 + proximity * 100),
                       opacity,
                     }}
                   >
-                    {isActive ? (
-                      <Link
-                        href={`/work/${project.slug}`}
-                        aria-label={`View ${project.title}`}
-                        className="relative block focus-visible:outline-none"
-                      >
-                        {visual}
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => select(index)}
-                        aria-label={`Show ${project.title}`}
-                        className="relative block cursor-pointer focus-visible:outline-none"
-                      >
-                        {visual}
-                      </button>
-                    )}
+                    {/* Every node is a real link to its project, whatever it
+                        is doing on the wheel. A node out at the side used to
+                        be a button, which left five of the six project pages
+                        with no path a crawler could follow from the home page
+                        — and nothing to open in a new tab either. The first
+                        click still brings a node round rather than navigating;
+                        it is the href that is always there, not the
+                        behaviour. */}
+                    <Link
+                      href={`/work/${project.slug}`}
+                      aria-label={
+                        isActive
+                          ? `View ${project.title}`
+                          : `Show ${project.title}`
+                      }
+                      onClick={(event) => {
+                        if (isActive) return;
+                        event.preventDefault();
+                        select(index);
+                      }}
+                      className="relative block cursor-pointer focus-visible:outline-none"
+                    >
+                      {visual}
+                    </Link>
                   </div>
                 );
               })}
@@ -402,7 +417,7 @@ export function WorkSection() {
                 </span>
               </div>
 
-              <h3 className="mt-5 font-display text-[clamp(1.75rem,3.5vw,2.75rem)] leading-[0.95] tracking-tight text-white">
+              <h3 className="mt-5 font-display text-[clamp(1.75rem,3.5vw,2.75rem)] leading-[1.06] tracking-tight text-white">
                 {activeProject.title}
               </h3>
 

@@ -102,7 +102,7 @@ export function AchievementsSection() {
               <p className="font-mono text-xs tracking-[0.25em] text-white/50 sm:text-sm">
                 ( 04 )&nbsp;&nbsp;ACHIEVEMENTS
               </p>
-              <h2 className="mt-6 font-display text-[clamp(2rem,4.5vw,3.75rem)] leading-[0.92] tracking-tight text-white">
+              <h2 className="mt-6 font-display text-[clamp(2rem,4.5vw,3.75rem)] leading-[1.06] tracking-tight text-white">
                 Wins so far.
               </h2>
             </div>

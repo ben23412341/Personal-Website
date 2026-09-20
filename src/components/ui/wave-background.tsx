@@ -19,18 +19,64 @@ interface WavesProps {
     className?: string
     strokeColor?: string
     backgroundColor?: string
-    pointerSize?: number
     /** Horizontal spacing between lines. Lower is denser and more expensive. */
     xGap?: number
     /** Vertical spacing between points on a line. */
     yGap?: number
 }
 
+/**
+ * How far from the pointer the field reacts. A finger covers more of a phone
+ * than a cursor covers a desktop, and it aims less precisely, so touch gets a
+ * wider reach.
+ */
+const MOUSE_RADIUS = 200
+const TOUCH_RADIUS = 260
+
+/** Sideways force from how fast the pointer is travelling: the swipe. */
+const DRAG_FORCE = 0.00045
+
+/**
+ * Force pushing points away from the pointer, regardless of speed. The drag
+ * force alone is proportional to velocity, so a slow, careful drag - which is
+ * most of what a thumb does - barely moved the field at all. This makes the
+ * lines part under the pointer as long as it keeps moving.
+ */
+const PUSH_FORCE = 0.18
+
+/** Divided by the restoration force, so this is the parting in px. */
+const MAX_OFFSET = 50
+
+/**
+ * The pointer is followed through a lerp, not snapped, so the parting trails
+ * it slightly. Touch tracks tighter: a thumb is already on the point it means
+ * to move, and lag there reads as the field ignoring it.
+ */
+const MOUSE_FOLLOW = 0.16
+const TOUCH_FOLLOW = 0.26
+
+/**
+ * Stop pushing once the pointer has been still this long (ms). Without it the
+ * push would hold a permanent dent wherever the pointer was last seen,
+ * including after the cursor has left the window entirely.
+ */
+const ENGAGE_TIMEOUT = 280
+
+/**
+ * Roughly how many points the field may carry, by viewport. Every point is
+ * re-noised and every path re-serialised on the main thread each frame, so
+ * this is the frame budget in disguise: a grid tuned to look right on a
+ * desktop costs a phone far more than it can spend per frame, and the whole
+ * field - pointer included - then moves in steps. Spacing is scaled up to stay
+ * inside the budget, rather than the caller having to guess per screen.
+ */
+const POINT_BUDGET_NARROW = 1300
+const POINT_BUDGET_WIDE = 8000
+
 export function Waves({
     className = "",
     strokeColor = "#ffffff",  // White lines
     backgroundColor = "#000000",  // Black background
-    pointerSize = 0.5,
     xGap = 8,
     yGap = 8
 }: WavesProps) {
@@ -43,15 +89,23 @@ export function Waves({
         ly: 0,
         sx: 0,
         sy: 0,
-        v: 0,
         vs: 0,
         a: 0,
         set: false,
+        /** Pointer is down - the only way touch counts as engaged. */
+        down: false,
+        /** The last pointer was a finger, not a cursor. */
+        touch: false,
+        /** Timestamp of the last pointer event, on the rAF clock. */
+        lastMove: -Infinity,
+        /** Present and recent enough to be pushing the field. */
+        engaged: false,
     })
     const pathsRef = useRef<SVGPathElement[]>([])
     const linesRef = useRef<Point[][]>([])
     const noiseRef = useRef<((x: number, y: number) => number) | null>(null)
     const rafRef = useRef<number | null>(null)
+    const lastTimeRef = useRef<number | null>(null)
     const boundingRef = useRef<DOMRect | null>(null)
 
     // Initialization
@@ -74,10 +128,16 @@ export function Waves({
         const resize = new ResizeObserver(onResize)
         resize.observe(container)
 
-        // Bind events
+        // Bind events. Pointer events cover cursor, pen and touch in one path;
+        // touch drags stay alive because the container sets `touch-action:
+        // none`, so nothing here has to block the main thread with a
+        // non-passive preventDefault. The browser implicitly captures a touch
+        // to the element it started on, so its moves still reach the window.
         window.addEventListener('scroll', onScroll, { passive: true })
-        window.addEventListener('mousemove', onMouseMove)
-        container.addEventListener('touchmove', onTouchMove, { passive: false })
+        window.addEventListener('pointermove', onPointerMove, { passive: true })
+        container.addEventListener('pointerdown', onPointerDown, { passive: true })
+        window.addEventListener('pointerup', onPointerUp, { passive: true })
+        window.addEventListener('pointercancel', onPointerUp, { passive: true })
 
         // Start animation
         rafRef.current = requestAnimationFrame(tick)
@@ -93,6 +153,7 @@ export function Waves({
             } else if (rafRef.current !== null) {
                 cancelAnimationFrame(rafRef.current)
                 rafRef.current = null
+                lastTimeRef.current = null
             }
         })
         visibility.observe(container)
@@ -102,8 +163,10 @@ export function Waves({
             resize.disconnect()
             if (rafRef.current) cancelAnimationFrame(rafRef.current)
             window.removeEventListener('scroll', onScroll)
-            window.removeEventListener('mousemove', onMouseMove)
-            container.removeEventListener('touchmove', onTouchMove)
+            window.removeEventListener('pointermove', onPointerMove)
+            container.removeEventListener('pointerdown', onPointerDown)
+            window.removeEventListener('pointerup', onPointerUp)
+            window.removeEventListener('pointercancel', onPointerUp)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -137,11 +200,21 @@ export function Waves({
         const oWidth = width + 200
         const oHeight = height + 30
 
-        const totalLines = Math.ceil(oWidth / xGap)
-        const totalPoints = Math.ceil(oHeight / yGap)
+        // Thin the grid until it fits the frame budget. Point count goes with
+        // the square of the spacing, so one scale factor on both axes keeps
+        // the field's proportions while trading density for frame rate.
+        const budget = width < 768 ? POINT_BUDGET_NARROW : POINT_BUDGET_WIDE
+        const requested = Math.ceil(oWidth / xGap) * Math.ceil(oHeight / yGap)
+        const scale = Math.max(1, Math.sqrt(requested / budget))
 
-        const xStart = (width - xGap * totalLines) / 2
-        const yStart = (height - yGap * totalPoints) / 2
+        const xSpacing = xGap * scale
+        const ySpacing = yGap * scale
+
+        const totalLines = Math.ceil(oWidth / xSpacing)
+        const totalPoints = Math.ceil(oHeight / ySpacing)
+
+        const xStart = (width - xSpacing * totalLines) / 2
+        const yStart = (height - ySpacing * totalPoints) / 2
 
         // Create vertical lines
         for (let i = 0; i < totalLines; i++) {
@@ -149,8 +222,8 @@ export function Waves({
 
             for (let j = 0; j < totalPoints; j++) {
                 const point: Point = {
-                    x: xStart + xGap * i,
-                    y: yStart + yGap * j,
+                    x: xStart + xSpacing * i,
+                    y: yStart + ySpacing * j,
                     wave: { x: 0, y: 0 },
                     cursor: { x: 0, y: 0, vx: 0, vy: 0 },
                 }
@@ -202,27 +275,42 @@ export function Waves({
         boundingRef.current = containerRef.current.getBoundingClientRect()
     }
 
-    // Mouse handler
-    const onMouseMove = (e: MouseEvent) => {
-        updateMousePosition(e.clientX, e.clientY)
+    // Pointer handler
+    const onPointerMove = (e: PointerEvent) => {
+        const mouse = mouseRef.current
+        const touch = e.pointerType === 'touch'
+
+        // A finger only counts while it is on the field itself. Otherwise a
+        // swipe anywhere else on the page would reach in and stir it.
+        if (touch && !mouse.down) return
+
+        mouse.touch = touch
+        updatePointerPosition(e.clientX, e.clientY, false)
     }
 
-    // Touch handler
-    const onTouchMove = (e: TouchEvent) => {
-        e.preventDefault()
-        const touch = e.touches[0]
-        updateMousePosition(touch.clientX, touch.clientY)
+    // A new touch starts where it lands. Lerping across from wherever the
+    // pointer was last seen would drag a furrow over everything in between.
+    const onPointerDown = (e: PointerEvent) => {
+        const mouse = mouseRef.current
+
+        mouse.touch = e.pointerType === 'touch'
+        mouse.down = true
+        updatePointerPosition(e.clientX, e.clientY, mouse.touch)
     }
 
-    // Update mouse position
-    const updateMousePosition = (x: number, y: number) => {
+    const onPointerUp = () => {
+        mouseRef.current.down = false
+    }
+
+    // Update pointer position
+    const updatePointerPosition = (x: number, y: number, snap: boolean) => {
         if (!boundingRef.current) return
 
         const mouse = mouseRef.current
         mouse.x = x - boundingRef.current.left
         mouse.y = y - boundingRef.current.top
 
-        if (!mouse.set) {
+        if (!mouse.set || snap) {
             mouse.sx = mouse.x
             mouse.sy = mouse.y
             mouse.lx = mouse.x
@@ -231,57 +319,80 @@ export function Waves({
             mouse.set = true
         }
 
-        // Update CSS variables
-        if (containerRef.current) {
-            containerRef.current.style.setProperty('--x', `${mouse.sx}px`)
-            containerRef.current.style.setProperty('--y', `${mouse.sy}px`)
-        }
+        mouse.lastMove = performance.now()
     }
 
-    // Move points - smoother wave motion
-    const movePoints = (time: number) => {
+    /**
+     * Move points - smoother wave motion. `dt` is elapsed frames at 60Hz, so
+     * the field settles at the same rate on a 120Hz phone as on a 60Hz laptop;
+     * otherwise every spring in here runs at twice the speed on half the
+     * hardware.
+     */
+    const movePoints = (time: number, dt: number) => {
         const { current: lines } = linesRef
         const { current: mouse } = mouseRef
         const { current: noise } = noiseRef
 
         if (!noise) return
 
+        // Hoisted out of the per-point loop: with thousands of points a frame,
+        // anything constant across them is worth computing only once.
+        const tx = time * 0.008
+        const ty = time * 0.003
+        const radius = Math.max(mouse.touch ? TOUCH_RADIUS : MOUSE_RADIUS, mouse.vs)
+        const radiusSq = radius * radius
+        const ca = Math.cos(mouse.a)
+        const sa = Math.sin(mouse.a)
+        const drag = mouse.vs * radius * DRAG_FORCE * dt
+        const push = mouse.engaged ? PUSH_FORCE * dt : 0
+        const restore = 0.01 * dt
+        const damp = Math.pow(0.95, dt)
+
         lines.forEach((points) => {
             points.forEach((p: Point) => {
                 // Wave movement - reduced amplitude for smoother waves
                 const move = noise(
-                    (p.x + time * 0.008) * 0.003,  // Adjusted frequency
-                    (p.y + time * 0.003) * 0.002   // Adjusted frequency
+                    (p.x + tx) * 0.003,  // Adjusted frequency
+                    (p.y + ty) * 0.002   // Adjusted frequency
                 ) * 8  // Reduced amplitude for smoother waves
 
                 p.wave.x = Math.cos(move) * 12  // Reduced horizontal amplitude
                 p.wave.y = Math.sin(move) * 6   // Reduced vertical amplitude
 
-                // Mouse effect - smoother response
+                // Pointer effect - smoother response. Compare squared first,
+                // so the far majority of points cost no square root.
                 const dx = p.x - mouse.sx
                 const dy = p.y - mouse.sy
-                const d = Math.hypot(dx, dy)
-                const l = Math.max(175, mouse.vs)
+                const dSq = dx * dx + dy * dy
 
-                if (d < l) {
-                    const s = 1 - d / l
+                if (dSq < radiusSq) {
+                    const d = Math.sqrt(dSq)
+                    const s = 1 - d / radius
                     const f = Math.cos(d * 0.001) * s
 
-                    p.cursor.vx += Math.cos(mouse.a) * f * l * mouse.vs * 0.00035  // Reduced influence
-                    p.cursor.vy += Math.sin(mouse.a) * f * l * mouse.vs * 0.00035  // Reduced influence
+                    // Along the swipe...
+                    p.cursor.vx += ca * f * drag
+                    p.cursor.vy += sa * f * drag
+
+                    // ...and away from the pointer itself.
+                    if (push > 0 && d > 0.001) {
+                        const radial = (s * s * push) / d
+                        p.cursor.vx += dx * radial
+                        p.cursor.vy += dy * radial
+                    }
                 }
 
-                p.cursor.vx += (0 - p.cursor.x) * 0.01   // Increased restoration force
-                p.cursor.vy += (0 - p.cursor.y) * 0.01   // Increased restoration force
+                p.cursor.vx += (0 - p.cursor.x) * restore   // Increased restoration force
+                p.cursor.vy += (0 - p.cursor.y) * restore   // Increased restoration force
 
-                p.cursor.vx *= 0.95  // Increased smoothness
-                p.cursor.vy *= 0.95  // Increased smoothness
+                p.cursor.vx *= damp  // Increased smoothness
+                p.cursor.vy *= damp  // Increased smoothness
 
-                p.cursor.x += p.cursor.vx
-                p.cursor.y += p.cursor.vy
+                p.cursor.x += p.cursor.vx * dt
+                p.cursor.y += p.cursor.vy * dt
 
-                p.cursor.x = Math.min(50, Math.max(-50, p.cursor.x))  // Limited deformation range
-                p.cursor.y = Math.min(50, Math.max(-50, p.cursor.y))  // Limited deformation range
+                p.cursor.x = Math.min(MAX_OFFSET, Math.max(-MAX_OFFSET, p.cursor.x))  // Limited deformation range
+                p.cursor.y = Math.min(MAX_OFFSET, Math.max(-MAX_OFFSET, p.cursor.y))  // Limited deformation range
             })
         })
     }
@@ -322,33 +433,44 @@ export function Waves({
     const tick = (time: number) => {
         const { current: mouse } = mouseRef
 
-        // Smooth mouse movement
-        mouse.sx += (mouse.x - mouse.sx) * 0.1
-        mouse.sy += (mouse.y - mouse.sy) * 0.1
+        // Elapsed frames since the last tick, clamped: a tab that was
+        // backgrounded, or a frame the phone dropped, must not arrive as one
+        // enormous step that throws every point past its clamp at once.
+        const elapsed = lastTimeRef.current === null ? 16.667 : time - lastTimeRef.current
+        lastTimeRef.current = time
+        const dt = Math.min(2.5, Math.max(0.4, elapsed / 16.667))
 
-        // Mouse velocity
+        // Smooth pointer movement
+        const follow = 1 - Math.pow(1 - (mouse.touch ? TOUCH_FOLLOW : MOUSE_FOLLOW), dt)
+        mouse.sx += (mouse.x - mouse.sx) * follow
+        mouse.sy += (mouse.y - mouse.sy) * follow
+
+        // Pointer velocity, measured per frame-at-60Hz rather than per actual
+        // frame, so a high-refresh screen does not report half the speed for
+        // the same swipe and stir the field half as hard.
         const dx = mouse.x - mouse.lx
         const dy = mouse.y - mouse.ly
-        const d = Math.hypot(dx, dy)
+        const speed = Math.hypot(dx, dy) / dt
 
-        mouse.v = d
-        mouse.vs += (d - mouse.vs) * 0.1
+        mouse.vs += (speed - mouse.vs) * (1 - Math.pow(0.9, dt))
         mouse.vs = Math.min(100, mouse.vs)
 
-        // Previous mouse position
+        // Previous pointer position
         mouse.lx = mouse.x
         mouse.ly = mouse.y
 
-        // Mouse angle
-        mouse.a = Math.atan2(dy, dx)
-
-        // Animation
-        if (containerRef.current) {
-            containerRef.current.style.setProperty('--x', `${mouse.sx}px`)
-            containerRef.current.style.setProperty('--y', `${mouse.sy}px`)
+        // Pointer angle, held over when it stops rather than collapsing to
+        // atan2(0, 0) and snapping the swipe direction to the right.
+        if (speed > 0.01) {
+            mouse.a = Math.atan2(dy, dx)
         }
 
-        movePoints(time)
+        mouse.engaged =
+            mouse.set &&
+            (mouse.down || !mouse.touch) &&
+            time - mouse.lastMove < ENGAGE_TIMEOUT
+
+        movePoints(time, dt)
         drawLines()
 
         rafRef.current = requestAnimationFrame(tick)
@@ -368,28 +490,19 @@ export function Waves({
                 width: '100%',
                 height: '100%',
                 overflow: 'hidden',
-                '--x': '-0.5rem',
-                '--y': '50%',
+                // The field takes the drag itself: without this the browser
+                // claims the gesture as a scroll a few pixels in and cancels
+                // the pointer, which is most of why it fought back on a phone.
+                touchAction: 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTapHighlightColor: 'transparent',
             } as React.CSSProperties}
         >
             <svg
                 ref={svgRef}
                 className="block w-full h-full js-svg"
                 xmlns="http://www.w3.org/2000/svg"
-            />
-            <div
-                className="pointer-dot"
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: `${pointerSize}rem`,
-                    height: `${pointerSize}rem`,
-                    background: strokeColor,
-                    borderRadius: '50%',
-                    transform: 'translate3d(calc(var(--x) - 50%), calc(var(--y) - 50%), 0)',
-                    willChange: 'transform',
-                }}
             />
         </div>
     )

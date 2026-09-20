@@ -9,8 +9,22 @@ export const siteConfig = {
   name: "Ben Devine",
   location: "Toronto, Canada",
   role: "Developer & Designer",
+  /**
+   * Canonical origin, no trailing slash. Every absolute URL the site hands a
+   * crawler is built from this: the sitemap, robots.txt, the structured data
+   * and `metadataBase`. Pick one host and stay on it — www and the bare
+   * domain are two sites to Google, and splitting between them splits the
+   * credit for every link.
+   */
+  url: "https://www.bendevine.ca",
+  /**
+   * The home page's <title>. Search results are the one place the site has to
+   * say what it is to someone who has never seen it, and there are several
+   * other Ben Devines to be told apart from.
+   */
+  title: "Ben Devine | Student Builder & Developer in Toronto",
   description:
-    "Personal site of Ben Devine — projects, work and experience.",
+    "Personal site of Ben Devine: projects, work and experience.",
 
   /**
    * Drives the live age counter in the hero.
@@ -41,7 +55,10 @@ export const siteConfig = {
     index: "01",
     heading: "I build things.",
     body: [
-      "I'm a grade 11 student based in Toronto. I am heavily focused on technology and building things that are useful in the World.",
+      // Opens in the third person on purpose: this is the one sentence on the
+      // site that says, in plain words a search engine can match, who Ben
+      // Devine is and where he is. The rest of the copy stays in his voice.
+      "Ben Devine is a grade 11 student based in Toronto, heavily focused on technology and building things that are useful in the World.",
       "Most of what I make starts as something that I wish existed or already had in my life. The projects below are where some of those ended up.",
     ],
     meta: [

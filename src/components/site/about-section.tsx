@@ -1,5 +1,6 @@
 "use client";
 
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   useParallaxLayers,
   type ParallaxLayer,
@@ -20,6 +21,20 @@ const LAYERS: readonly ParallaxLayer[] = [
   { layer: "4", y: 60 }, // the copy — nearest
 ];
 
+/**
+ * The same four layers, at roughly half the travel. Depth is the difference
+ * between two layers' drift, and on a phone the index and the copy have only
+ * the height of the label between them: 60px of it spent that gap and drove
+ * the index down through the heading. Half the travel keeps the layers apart
+ * over a runway that is itself a quarter shorter.
+ */
+const NARROW_LAYERS: readonly ParallaxLayer[] = [
+  { layer: "1", y: 180 },
+  { layer: "2", y: 130 },
+  { layer: "3", y: 80 },
+  { layer: "4", y: 50 },
+];
+
 /** Faint vertical hairlines — a quieter echo of the hero's wave field. */
 function HairlineField() {
   return (
@@ -36,9 +51,18 @@ function HairlineField() {
 }
 
 export function AboutSection() {
+  // Matches the `sm:` breakpoint the copy's own frame changes at. Width, not
+  // height: a phone's toolbars collapse as it scrolls, which moves the
+  // viewport height by over a hundred pixels, and rebuilding the timeline
+  // underneath a scrub the viewer is in the middle of would jump it. Short
+  // frames get their room from CSS (`short:`) instead, which cannot jump.
+  const narrow = useMediaQuery("(max-width: 639px)");
   // Reversed: the layers start displaced down the frame — where the forward
   // version ended — and rise back into place as the section scrolls through.
-  const ref = useParallaxLayers<HTMLDivElement>(LAYERS, { reverse: true });
+  const ref = useParallaxLayers<HTMLDivElement>(
+    narrow ? NARROW_LAYERS : LAYERS,
+    { reverse: true },
+  );
   const { about } = siteConfig;
 
   return (
@@ -75,7 +99,7 @@ export function AboutSection() {
             {/* 3 — section index */}
             <div
               data-parallax-layer="3"
-              className="absolute inset-x-0 top-0 px-5 pt-10 sm:px-8 sm:pt-14"
+              className="absolute inset-x-0 top-0 px-5 pt-10 short:pt-8 sm:px-8 sm:pt-14"
             >
               <p className="font-mono text-xs tracking-[0.25em] text-white/50 sm:text-sm">
                 ( {about.index} )&nbsp;&nbsp;ABOUT
@@ -84,18 +108,29 @@ export function AboutSection() {
 
             {/* 4 — the copy, holds nearly still so it stays readable. Narrow
                 screens centre it against a frame short of the bottom, which
-                lifts the block and trims the gap under its last line. */}
+                lifts the block and trims the gap under its last line, and
+                short of the top, which leaves the index its own room: a phone
+                in landscape, or in Safari with both toolbars showing, has a
+                frame short enough that a block centred against all of it
+                started above the label. `content-center-safe` covers the rest
+                — once the copy is taller than the room it has, it grows down
+                past the fold rather than up through the index. */}
             <div
               data-parallax-layer="4"
-              className="absolute inset-x-0 bottom-24 top-0 grid content-center px-5 sm:bottom-0 sm:px-8"
+              className="absolute inset-x-0 bottom-24 top-28 grid content-center-safe px-5 short:bottom-6 sm:bottom-0 sm:top-0 sm:px-8 sm:short:top-32"
             >
               <div className="w-full max-w-6xl">
-                <h2 className="max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[0.92] tracking-tight text-white">
+                <h2 className="max-w-4xl text-balance font-display text-[clamp(2.25rem,6.5vw,5rem)] leading-[1.06] tracking-tight text-white">
                   {about.heading}
                 </h2>
 
-                <div className="mt-8 grid gap-10 md:mt-12 md:grid-cols-[minmax(0,1fr)_18rem] md:gap-16">
-                  <div className="max-w-xl space-y-4">
+                {/* The copy is the one block here that cannot be made shorter
+                    by the viewport, so on a frame under 700px — a small phone,
+                    or any phone showing both of Safari's toolbars — its own
+                    rhythm tightens rather than letting the last rows fall off
+                    the bottom of the pinned frame. */}
+                <div className="mt-8 grid gap-10 short:mt-5 short:gap-6 md:mt-12 md:grid-cols-[minmax(0,1fr)_18rem] md:gap-16">
+                  <div className="max-w-xl space-y-4 short:space-y-3">
                     {about.body.map((paragraph) => (
                       <p
                         key={paragraph}
@@ -106,7 +141,7 @@ export function AboutSection() {
                     ))}
                   </div>
 
-                  <dl className="grid gap-5 self-end">
+                  <dl className="grid gap-5 self-end short:gap-3">
                     {about.meta.map((item) => (
                       <div key={item.label} className="flex flex-col gap-1">
                         <dt className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/40">

@@ -112,7 +112,16 @@ export function Hero() {
 
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-10">
               <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:gap-8">
-                <h1 className="font-display text-[clamp(4rem,13.2vw,9.75rem)] font-normal leading-[0.82] tracking-[0.005em] text-white">
+                {/* Anton sets its caps 0.86em above the baseline and its
+                    descenders 0.13em below, so any leading under 0.99 has
+                    stacked lines touching — which never showed while a
+                    heading stayed on one line. The name wraps on a narrow
+                    phone, and again between 768px and ~1000px where it shares
+                    this row with the age counter. Nothing in CSS can key off
+                    wrapping, so every display heading on the site runs at
+                    1.06, and the ones whose box height is load-bearing pull
+                    the extra half-leading back off with -0.1em of margin. */}
+                <h1 className="-my-[0.1em] font-display text-[clamp(4rem,13.2vw,9.75rem)] font-normal leading-[1.06] tracking-[0.005em] text-white">
                   {siteConfig.name}
                 </h1>
                 <AgeCounter

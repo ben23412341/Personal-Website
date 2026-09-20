@@ -91,7 +91,7 @@ export function ExperienceCard({
           </span>
         </div>
 
-        <h3 className="mt-4 font-display text-2xl leading-[0.95] tracking-tight text-white">
+        <h3 className="mt-4 font-display text-2xl leading-[1.06] tracking-tight text-white">
           {item.role}
         </h3>
         <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-white/55">

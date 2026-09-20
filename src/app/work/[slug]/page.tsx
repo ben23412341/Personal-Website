@@ -22,9 +22,22 @@ export async function generateMetadata({
 
   if (!project) return { title: `Not found — ${siteConfig.name}` };
 
+  const title = `${project.title} — ${siteConfig.name}`;
+
   return {
-    title: `${project.title} — ${siteConfig.name}`,
+    title,
     description: project.summary,
+    // Both of these are inherited from the root layout unless the page says
+    // otherwise, and inheriting them would have every project page naming the
+    // home page as its canonical — which reads as "this page is a duplicate,
+    // index that one instead".
+    alternates: { canonical: `/work/${project.slug}` },
+    openGraph: {
+      type: "article",
+      url: `${siteConfig.url}/work/${project.slug}`,
+      title,
+      description: project.summary,
+    },
   };
 }
 
@@ -68,7 +81,7 @@ export default async function ProjectPage({
             </span>
           </div>
 
-          <h1 className="mt-6 font-display text-[clamp(3rem,10vw,7.5rem)] leading-[0.85] tracking-tight text-white">
+          <h1 className="mt-6 font-display text-[clamp(3rem,10vw,7.5rem)] leading-[1.06] -my-[0.1em] tracking-tight text-white">
             {project.title}
           </h1>
 
@@ -193,7 +206,7 @@ export default async function ProjectPage({
                     <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/50">
                       {item.category} · {item.year}
                     </span>
-                    <h2 className="mt-3 font-display text-3xl leading-none tracking-tight text-white">
+                    <h2 className="mt-3 font-display text-3xl leading-[1.06] tracking-tight text-white">
                       {item.title}
                     </h2>
                     <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/60">

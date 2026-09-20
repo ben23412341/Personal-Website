@@ -20,9 +20,20 @@ export async function generateMetadata({
 
   if (!item) return { title: `Not found — ${siteConfig.name}` };
 
+  const title = `${item.role} — ${siteConfig.name}`;
+
   return {
-    title: `${item.role} — ${siteConfig.name}`,
+    title,
     description: item.summary,
+    // See the note on the project page: without its own canonical, this page
+    // inherits the root layout's and hands Google the home page instead.
+    alternates: { canonical: `/experience/${item.slug}` },
+    openGraph: {
+      type: "article",
+      url: `${siteConfig.url}/experience/${item.slug}`,
+      title,
+      description: item.summary,
+    },
   };
 }
 
@@ -55,7 +66,7 @@ export default async function ExperiencePage({
             {item.org}
           </p>
 
-          <h1 className="mt-6 font-display text-[clamp(2.5rem,9vw,7rem)] leading-[0.85] tracking-tight text-white">
+          <h1 className="mt-6 font-display text-[clamp(2.5rem,9vw,7rem)] leading-[1.06] -my-[0.1em] tracking-tight text-white">
             {item.role}
           </h1>
 
@@ -79,22 +90,6 @@ export default async function ExperiencePage({
           </div>
 
           <aside className="space-y-8">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/40">
-                Highlights
-              </p>
-              <ul className="mt-3 space-y-2">
-                {item.highlights.map((line) => (
-                  <li
-                    key={line}
-                    className="border-l border-white/20 pl-3 text-sm leading-relaxed text-white/70"
-                  >
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
             {item.stack.length > 0 && (
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/40">
@@ -161,7 +156,7 @@ export default async function ExperiencePage({
                     <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/50">
                       {other.period} · {other.org}
                     </span>
-                    <h2 className="mt-3 font-display text-3xl leading-none tracking-tight text-white">
+                    <h2 className="mt-3 font-display text-3xl leading-[1.06] tracking-tight text-white">
                       {other.role}
                     </h2>
                     <p className="mt-3 text-sm leading-relaxed text-white/60">
